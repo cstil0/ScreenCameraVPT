@@ -31,9 +31,9 @@ public class UDPReceiver : MonoBehaviour
     Quaternion currRot;
 
     // main thread that listens to UDP messages through a defined port
-    void UDPTest()
+    void ReceiveUDP()
     {
-        // create client and set the port (HARCODEADO EN EL EDITOR!!-----)
+        // create client and set the port
         UdpClient client = new UdpClient(serverPort);
         // loop needed to keep listening
         while (true)
@@ -43,47 +43,44 @@ public class UDPReceiver : MonoBehaviour
                 // recieve messages through the end point
                 IPEndPoint remoteEndPoint = new IPEndPoint(IPAddress.Any, serverPort);
                 byte[] receiveBytes = client.Receive(ref remoteEndPoint);
+                // once the message is recieved, encode it as ASCII
                 receivedMessage = Encoding.ASCII.GetString(receiveBytes);
-                //bool resetStart = Convert.ToBoolean(receivedMessage);
+                bool resetStart = Convert.ToBoolean(receivedMessage);
 
-                //receiveBytes = client.Receive(ref remoteEndPoint);
-                //// once the message is recieved, encode it as ASCII
-                //receivedMessage = Encoding.ASCII.GetString(receiveBytes);
-                //Debug.Log("Position: " + receivedMessage);
+                receiveBytes = client.Receive(ref remoteEndPoint);
+                // once the message is recieved, encode it as ASCII
+                receivedMessage = Encoding.ASCII.GetString(receiveBytes);
+                Debug.Log("Position: " + receivedMessage);
 
-                //string[] splittedMessage = receivedMessage.Split(" ");
-                //string coma = ", ";
-                //string[] splittedMessage = receivedMessage.Split(coma);
-                ////currPos = new Vector3(float.Parse(splittedMessage[0][1..], CultureInfo.InvariantCulture), float.Parse(splittedMessage[1], CultureInfo.InvariantCulture), float.Parse(splittedMessage[2][..^1], CultureInfo.InvariantCulture));
+                // since it is a vector we do not want the parenthesis
+                string filteredMessage = receivedMessage.Substring(1, -2);
+                string[] splittedMessage = filteredMessage.Split(",".ToCharArray());
+                currPos = new Vector3(float.Parse(splittedMessage[0], CultureInfo.InvariantCulture), float.Parse(splittedMessage[1], CultureInfo.InvariantCulture), float.Parse(splittedMessage[2], CultureInfo.InvariantCulture));
 
-                //if (resetStart)
-                //{
-                //    remoteStartPos = new Vector3(currPos.x, currPos.y, currPos.z);
-                //}
+                if (resetStart)
+                {
+                    remoteStartPos = new Vector3(currPos.x, currPos.y, currPos.z);
+                }
 
-                //receiveBytes = client.Receive(ref remoteEndPoint);
-                //// once the message is recieved, encode it as ASCII
-                //receivedMessage = Encoding.ASCII.GetString(receiveBytes);
-                //Debug.Log("Rotation: " + receivedMessage);
+                receiveBytes = client.Receive(ref remoteEndPoint);
+                // once the message is recieved, encode it as ASCII
+                receivedMessage = Encoding.ASCII.GetString(receiveBytes);
+                Debug.Log("Rotation: " + receivedMessage);
 
-                ////splittedMessage = receivedMessage.Split(" ");
-                //splittedMessage = receivedMessage.Split(", ");
-                ////currRot = new Vector3(float.Parse(splittedMessage[0], CultureInfo.InvariantCulture), float.Parse(splittedMessage[1], CultureInfo.InvariantCulture), float.Parse(splittedMessage[2], CultureInfo.InvariantCulture));
-                ////currRot = new Quaternion(float.Parse(splittedMessage[0][1..], CultureInfo.InvariantCulture), float.Parse(splittedMessage[1], CultureInfo.InvariantCulture), float.Parse(splittedMessage[2], CultureInfo.InvariantCulture), float.Parse(splittedMessage[3][..^1], CultureInfo.InvariantCulture));
+                //splittedMessage = receivedMessage.Split(" ");
+                filteredMessage = receivedMessage.Substring(1, -2);
+                splittedMessage = filteredMessage.Split(",".ToCharArray());
+                
+                currRot = new Quaternion(float.Parse(splittedMessage[0], CultureInfo.InvariantCulture), float.Parse(splittedMessage[1], CultureInfo.InvariantCulture), float.Parse(splittedMessage[2], CultureInfo.InvariantCulture), float.Parse(splittedMessage[3], CultureInfo.InvariantCulture));
 
-                ////if (remoteStartRot == new Vector3(0.0f, 0.0f, 0.0f))
-                ////{
-                ////    remoteStartRot = new Vector3(currRot.x, currRot.y, currRot.z);
-                ////}
-                //if (resetStart)
-                //{
-                //    remoteStartRot = new Quaternion(currRot.x, currRot.y, currRot.z, currRot.w);
-                //}
-
+                if (resetStart)
+                {
+                    remoteStartRot = new Quaternion(currRot.x, currRot.y, currRot.z, currRot.w);
+                }
             }
             catch (Exception e)
             {
-                print("Exception thrown " + e.Message);
+                print("Error: " + e.Message);
             }
         }
     }
@@ -98,7 +95,7 @@ public class UDPReceiver : MonoBehaviour
     void Start()
     {
         // Start thread to listen UDP messages and set it as background
-        receiveThread = new Thread(UDPTest);
+        receiveThread = new Thread(ReceiveUDP);
         receiveThread.IsBackground = true;
         receiveThread.Start();
 
