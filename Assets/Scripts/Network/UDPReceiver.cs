@@ -53,9 +53,11 @@ public class UDPReceiver : MonoBehaviour
                 Debug.Log("Position: " + receivedMessage);
 
                 // since it is a vector we do not want the parenthesis
-                string filteredMessage = receivedMessage.Substring(1, -2);
-                string[] splittedMessage = filteredMessage.Split(",".ToCharArray());
-                currPos = new Vector3(float.Parse(splittedMessage[0], CultureInfo.InvariantCulture), float.Parse(splittedMessage[1], CultureInfo.InvariantCulture), float.Parse(splittedMessage[2], CultureInfo.InvariantCulture));
+                int parenthesisIndex = receivedMessage.IndexOf(")");
+                string filteredMessage = receivedMessage.Substring(1, parenthesisIndex - 1);
+                //string filteredMessage = receivedMessage.Substring(1, -2);
+                string[] splittedMessage = filteredMessage.Split(", ".ToCharArray());
+                currPos = new Vector3(float.Parse(splittedMessage[0], CultureInfo.InvariantCulture), float.Parse(splittedMessage[2], CultureInfo.InvariantCulture), float.Parse(splittedMessage[4], CultureInfo.InvariantCulture));
 
                 if (resetStart)
                 {
@@ -68,10 +70,11 @@ public class UDPReceiver : MonoBehaviour
                 Debug.Log("Rotation: " + receivedMessage);
 
                 //splittedMessage = receivedMessage.Split(" ");
-                filteredMessage = receivedMessage.Substring(1, -2);
-                splittedMessage = filteredMessage.Split(",".ToCharArray());
+                parenthesisIndex = receivedMessage.IndexOf(")");
+                filteredMessage = receivedMessage.Substring(1, parenthesisIndex - 1);
+                splittedMessage = filteredMessage.Split(", ".ToCharArray());
                 
-                currRot = new Quaternion(float.Parse(splittedMessage[0], CultureInfo.InvariantCulture), float.Parse(splittedMessage[1], CultureInfo.InvariantCulture), float.Parse(splittedMessage[2], CultureInfo.InvariantCulture), float.Parse(splittedMessage[3], CultureInfo.InvariantCulture));
+                currRot = new Quaternion(float.Parse(splittedMessage[0], CultureInfo.InvariantCulture), float.Parse(splittedMessage[2], CultureInfo.InvariantCulture), float.Parse(splittedMessage[4], CultureInfo.InvariantCulture), float.Parse(splittedMessage[6], CultureInfo.InvariantCulture));
 
                 if (resetStart)
                 {
