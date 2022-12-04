@@ -1,16 +1,17 @@
+using System.Collections;
+using System.Collections.Generic;
 using UnityEngine;
 using System;
-using System.Text;
-using System.Net;
-using System.Net.Sockets;
+using System.IO;
+using System.IO.Pipes;
 using System.Threading;
+using System.Security.Principal;
+using System.Text;
 using System.Globalization;
-using System.Collections;
 
-public class UDPReceiver : MonoBehaviour
+public class PipesReceiver : MonoBehaviour
 {
     // udpclient object
-    UdpClient client;
     public int serverPort;
     Thread receiveThread;
     Thread evaluateThread;
@@ -25,8 +26,6 @@ public class UDPReceiver : MonoBehaviour
     Vector3 currPos;
 
     bool resetStart;
-    bool changeCamera;
-
     //Vector3 startRot;
     Quaternion startRot;
     //Vector3 remoteStartRot;
@@ -35,7 +34,7 @@ public class UDPReceiver : MonoBehaviour
     Quaternion currRot;
     Quaternion currSceneRot;
 
-    public RenderTexture screenTexture; 
+    public RenderTexture screenTexture;
 
     enum Messages
     {
@@ -43,24 +42,28 @@ public class UDPReceiver : MonoBehaviour
         CAMERA_INFO,
         SCENE_ROTATION,
         SEND_NDI,
-        SEND_DISPLAY,
-        CHANGE_CAMERA
+        SEND_DISPLAY
     }
     // main thread that listens to UDP messages through a defined port
     void ReceiveUDP()
     {
-        // create client and set the port
-        client = new UdpClient(serverPort);
         // loop needed to keep listening
         while (true)
         {
             try
             {
+                //Create Client Instance
+                NamedPipeClientStream pipeClient = new NamedPipeClientStream(".", "MyCOMApp",
+                                PipeDirection.InOut, PipeOptions.None,
+                                TokenImpersonationLevel.Impersonation);
+
                 // recieve messages through the end point
-                IPEndPoint remoteEndPoint = new IPEndPoint(IPAddress.Any, serverPort);
-                byte[] receiveBytes = client.Receive(ref remoteEndPoint);
-                // once the message is recieved, encode it as ASCII
-                receivedMessage = Encoding.ASCII.GetString(receiveBytes);
+                //Connect to server
+                pipeClient.Connect();
+                //Created stream for reading and writing
+                StreamReader clientStream = new StreamReader(pipeClient);
+                //Read from Server
+                receivedMessage = clientStream.ReadLine();
 
                 Messages message_enum = 0;
                 string message = "";
@@ -78,6 +81,7 @@ public class UDPReceiver : MonoBehaviour
                     message = receivedMessage;
                 }
 
+
                 // switch action according to message
                 switch (message_enum)
                 {
@@ -85,9 +89,9 @@ public class UDPReceiver : MonoBehaviour
                         resetStart = bool.Parse(message);
 
                         // Receive positition
-                        receiveBytes = client.Receive(ref remoteEndPoint);
+                        receivedMessage = clientStream.ReadLine();
                         // once the message is recieved, encode it as ASCII
-                        receivedMessage = Encoding.ASCII.GetString(receiveBytes);
+                        //receivedMessage = Encoding.ASCII.GetString(receiveBytes);
 
                         int parenthesisIndex = receivedMessage.IndexOf(")");
                         string filteredMessage = receivedMessage.Substring(1, parenthesisIndex - 1);
@@ -96,9 +100,10 @@ public class UDPReceiver : MonoBehaviour
                         currPos = new Vector3(float.Parse(splittedMessage[0], CultureInfo.InvariantCulture), float.Parse(splittedMessage[2], CultureInfo.InvariantCulture), float.Parse(splittedMessage[4], CultureInfo.InvariantCulture));
 
                         // Receive rotation
-                        receiveBytes = client.Receive(ref remoteEndPoint);
+                        receivedMessage = clientStream.ReadLine();
+                        //receiveBytes = client.Receive(ref remoteEndPoint);
                         // once the message is recieved, encode it as ASCII
-                        receivedMessage = Encoding.ASCII.GetString(receiveBytes);
+                        //receivedMessage = Encoding.ASCII.GetString(receiveBytes);
 
                         //splittedMessage = receivedMessage.Split(" ");
                         parenthesisIndex = receivedMessage.IndexOf(")");
@@ -128,9 +133,7 @@ public class UDPReceiver : MonoBehaviour
                         lastMessageType = Messages.SEND_DISPLAY;
                         break;
 
-                    case Messages.CHANGE_CAMERA:
-                        changeCamera = true;
-                        break;
+                pipeClient.Close();
                 }
             }
             catch (Exception e)
@@ -143,13 +146,6 @@ public class UDPReceiver : MonoBehaviour
 
     void changePos()
     {
-        if (changeCamera)
-        {
-            Debug.Log("CHANGE CAMERA");
-            ScreenCamera.transform.position += (remoteStartPos - currPos);
-
-            changeCamera = false;
-        }
         if (resetStart)
         {
             remoteStartPos = new Vector3(currPos.x, currPos.y, currPos.z);
@@ -169,7 +165,7 @@ public class UDPReceiver : MonoBehaviour
             startRot = ScreenCamera.transform.rotation;
         }
 
-        Quaternion remoteRotDiff = remoteStartRot * Quaternion.Inverse(currRot);
+        Quaternion remoteRotDiff = currRot * Quaternion.Inverse(remoteStartRot);
         //Quaternion remoteRotDiff = remoteStartRot * Quaternion.Inverse(currRot);
         ScreenCamera.transform.rotation = remoteRotDiff * startRot;
 
@@ -226,7 +222,7 @@ public class UDPReceiver : MonoBehaviour
         if (evaluateThread != null)
             evaluateThread.Abort();
 
-        client.Close();
+        //client.Close();
     }
     // Start is called before the first frame update
     void Start()
@@ -234,7 +230,6 @@ public class UDPReceiver : MonoBehaviour
         //messagesToEvaluate = new Queue();
         lastMessageType = Messages.ALREADY_EVALUATED;
         resetStart = false;
-        changeCamera = false;
 
         // Start thread to listen UDP messages and set it as background
         receiveThread = new Thread(ReceiveUDP);
