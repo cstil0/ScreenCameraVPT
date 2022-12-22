@@ -6,9 +6,11 @@ using System.Net.Sockets;
 using System.Threading;
 using System.Globalization;
 using System.Collections;
+using System.IO;
 
 public class UDPReceiver : MonoBehaviour
 {
+    public static UDPReceiver instance;
     // udpclient object
     UdpClient client;
     public int serverPort;
@@ -22,7 +24,10 @@ public class UDPReceiver : MonoBehaviour
     public Camera ScreenCamera;
     Vector3 startPos;
     Vector3 remoteStartPos;
-    Vector3 currPos;
+    Vector3 currRemotePos;
+
+    Vector3 lastRemotePos;
+    Quaternion lastRemoteRot;
 
     bool resetStart;
     bool changeCamera;
@@ -31,11 +36,15 @@ public class UDPReceiver : MonoBehaviour
     Quaternion startRot;
     //Vector3 remoteStartRot;
     Quaternion remoteStartRot;
-    //Vector3 currRot;
-    Quaternion currRot;
+    //Vector3 currRemoteRot;
+    Quaternion currRemoteRot;
     Quaternion currSceneRot;
 
-    public RenderTexture screenTexture; 
+    public RenderTexture screenTexture;
+
+    public float wallDistance = 1;
+
+    cameraModes cameraMode;
 
     enum Messages
     {
@@ -44,8 +53,30 @@ public class UDPReceiver : MonoBehaviour
         SCENE_ROTATION,
         SEND_NDI,
         SEND_DISPLAY,
-        CHANGE_CAMERA
+        CHANGE_CAMERA,
+        CHANGE_DISTANCE
     }
+
+    enum cameraModes
+    {
+        FOLLOW,
+        INVERTED
+    }
+
+    private void Awake()
+    {
+        // If there is an instance, and it's not me, delete myself.
+
+        if (UDPReceiver.instance != null && UDPReceiver.instance != this)
+        {
+            Destroy(this);
+        }
+        else
+        {
+            UDPReceiver.instance = this;
+        }
+    }
+
     // main thread that listens to UDP messages through a defined port
     void ReceiveUDP()
     {
@@ -83,6 +114,7 @@ public class UDPReceiver : MonoBehaviour
                 {
                     case Messages.CAMERA_INFO:
                         resetStart = bool.Parse(message);
+                        Debug.Log("Reset: " + resetStart);
 
                         // Receive positition
                         receiveBytes = client.Receive(ref remoteEndPoint);
@@ -93,7 +125,8 @@ public class UDPReceiver : MonoBehaviour
                         string filteredMessage = receivedMessage.Substring(1, parenthesisIndex - 1);
                         //string filteredMessage = receivedMessage.Substring(1, -2);
                         string[] splittedMessage = filteredMessage.Split(", ".ToCharArray());
-                        currPos = new Vector3(float.Parse(splittedMessage[0], CultureInfo.InvariantCulture), float.Parse(splittedMessage[2], CultureInfo.InvariantCulture), float.Parse(splittedMessage[4], CultureInfo.InvariantCulture));
+                        currRemotePos = new Vector3(float.Parse(splittedMessage[0], CultureInfo.InvariantCulture), float.Parse(splittedMessage[2], CultureInfo.InvariantCulture), float.Parse(splittedMessage[4], CultureInfo.InvariantCulture));
+                        Debug.Log("Pos: " + currRemotePos);
 
                         // Receive rotation
                         receiveBytes = client.Receive(ref remoteEndPoint);
@@ -105,7 +138,8 @@ public class UDPReceiver : MonoBehaviour
                         filteredMessage = receivedMessage.Substring(1, parenthesisIndex - 1);
                         splittedMessage = filteredMessage.Split(", ".ToCharArray());
 
-                        currRot = new Quaternion(float.Parse(splittedMessage[0], CultureInfo.InvariantCulture), float.Parse(splittedMessage[2], CultureInfo.InvariantCulture), float.Parse(splittedMessage[4], CultureInfo.InvariantCulture), float.Parse(splittedMessage[6], CultureInfo.InvariantCulture));
+                        currRemoteRot = new Quaternion(float.Parse(splittedMessage[0], CultureInfo.InvariantCulture), float.Parse(splittedMessage[2], CultureInfo.InvariantCulture), float.Parse(splittedMessage[4], CultureInfo.InvariantCulture), float.Parse(splittedMessage[6], CultureInfo.InvariantCulture));
+                        Debug.Log("Rot: " + currRemoteRot.eulerAngles);
 
                         lastMessageType = Messages.CAMERA_INFO;
                         break;
@@ -131,6 +165,10 @@ public class UDPReceiver : MonoBehaviour
                     case Messages.CHANGE_CAMERA:
                         changeCamera = true;
                         break;
+
+                    case Messages.CHANGE_DISTANCE:
+                        wallDistance = float.Parse(message, CultureInfo.InvariantCulture);
+                        break;
                 }
             }
             catch (Exception e)
@@ -146,32 +184,38 @@ public class UDPReceiver : MonoBehaviour
         if (changeCamera)
         {
             Debug.Log("CHANGE CAMERA");
-            ScreenCamera.transform.position += (remoteStartPos - currPos);
+            if (cameraMode == cameraModes.FOLLOW)
+                ScreenCamera.transform.position += (remoteStartPos - currRemotePos);
+            else if (cameraMode == cameraModes.INVERTED)
+                ScreenCamera.transform.position += (currRemotePos - remoteStartPos);
 
             changeCamera = false;
         }
         if (resetStart)
         {
-            remoteStartPos = new Vector3(currPos.x, currPos.y, currPos.z);
+            remoteStartPos = new Vector3(currRemotePos.x, currRemotePos.y, currRemotePos.z);
             startPos = ScreenCamera.transform.position;
         }
 
-        Vector3 remotePosDiff = remoteStartPos - currPos;
+        Vector3 remotePosDiff = currRemotePos - remoteStartPos;
         //Vector3 remotePosDiff = currPos - remoteStartPos;
-        ScreenCamera.transform.position = remotePosDiff + startPos;
-
+        ScreenCamera.transform.position = (remotePosDiff * wallDistance) + startPos;
     }
     void changeRot()
     {
         if (resetStart)
         {
-            remoteStartRot = new Quaternion(currRot.x, currRot.y, currRot.z, currRot.w);
+            remoteStartRot = new Quaternion(currRemoteRot.x, currRemoteRot.y, currRemoteRot.z, currRemoteRot.w);
             startRot = ScreenCamera.transform.rotation;
         }
 
-        Quaternion remoteRotDiff = remoteStartRot * Quaternion.Inverse(currRot);
-        //Quaternion remoteRotDiff = remoteStartRot * Quaternion.Inverse(currRot);
-        ScreenCamera.transform.rotation = remoteRotDiff * startRot;
+        Vector3 remoteRotDiff = currRemoteRot.eulerAngles - remoteStartRot.eulerAngles;
+        Vector3 parallaxDiff = remoteRotDiff * wallDistance;
+        ScreenCamera.transform.rotation = Quaternion.Euler(parallaxDiff + startRot.eulerAngles);
+
+        //Quaternion remoteRotDiff = currRemoteRot * Quaternion.Inverse(remoteStartRot);
+        //Quaternion parallaxDiff = new Quaternion(remoteRotDiff.x * wallDistance, remoteRotDiff.y * wallDistance, remoteRotDiff.z * wallDistance, remoteRotDiff.w * wallDistance);
+        //ScreenCamera.transform.rotation = parallaxDiff * startRot;
 
         lastMessageType = Messages.ALREADY_EVALUATED;
     }
@@ -268,6 +312,28 @@ public class UDPReceiver : MonoBehaviour
             case Messages.SEND_DISPLAY:
                 changeToDisplay();
                 break;
+        }
+
+        if (Input.GetKeyDown(KeyCode.A))
+        {
+            float tempDist = wallDistance + 0.05f;
+            if (tempDist <= 1.0f)
+                wallDistance = tempDist;
+        }
+        if (Input.GetKeyDown(KeyCode.S))
+        {
+            float tempDist = wallDistance - 0.05f;
+            if (tempDist >= 0.0f)
+                wallDistance = tempDist;
+        }
+
+        if (Input.GetKeyDown(KeyCode.C))
+        {
+            cameraMode = cameraModes.FOLLOW;
+        }
+        if (Input.GetKeyDown(KeyCode.V))
+        {
+            cameraMode = cameraModes.INVERTED;
         }
     }
 }

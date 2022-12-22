@@ -42,7 +42,8 @@ public class PipesReceiver : MonoBehaviour
         CAMERA_INFO,
         SCENE_ROTATION,
         SEND_NDI,
-        SEND_DISPLAY
+        SEND_DISPLAY,
+        DIST
     }
     // main thread that listens to UDP messages through a defined port
     void ReceiveUDP()
@@ -53,93 +54,96 @@ public class PipesReceiver : MonoBehaviour
             try
             {
                 //Create Client Instance
-                NamedPipeClientStream pipeClient = new NamedPipeClientStream(".", "MyCOMApp",
-                                PipeDirection.InOut, PipeOptions.None,
-                                TokenImpersonationLevel.Impersonation);
-
-                // recieve messages through the end point
-                //Connect to server
-                pipeClient.Connect();
-                //Created stream for reading and writing
-                StreamReader clientStream = new StreamReader(pipeClient);
-                //Read from Server
-                receivedMessage = clientStream.ReadLine();
-
-                Messages message_enum = 0;
-                string message = "";
-
-                if (receivedMessage.Contains(":"))
+                using (NamedPipeClientStream pipeClient = new NamedPipeClientStream(".", "VPT", PipeDirection.In))
                 {
-                    string[] splittedMessageType = receivedMessage.Split(":".ToCharArray());
-                    // convert string to correct enum type
-                    message_enum = (Messages)Enum.Parse(typeof(Messages), splittedMessageType[0]);
-                    message = splittedMessageType[1];
-                }
-                else
-                {
-                    message_enum = (Messages)Enum.Parse(typeof(Messages), receivedMessage);
-                    message = receivedMessage;
-                }
-
-
-                // switch action according to message
-                switch (message_enum)
-                {
-                    case Messages.CAMERA_INFO:
-                        resetStart = bool.Parse(message);
-
-                        // Receive positition
+                    // recieve messages through the end point
+                    //Connect to server
+                    pipeClient.Connect();
+                    //Created stream for reading and writing
+                    using (StreamReader clientStream = new StreamReader(pipeClient))
+                    {
+                        //Read from Server
                         receivedMessage = clientStream.ReadLine();
-                        // once the message is recieved, encode it as ASCII
-                        //receivedMessage = Encoding.ASCII.GetString(receiveBytes);
+                    }
 
-                        int parenthesisIndex = receivedMessage.IndexOf(")");
-                        string filteredMessage = receivedMessage.Substring(1, parenthesisIndex - 1);
-                        //string filteredMessage = receivedMessage.Substring(1, -2);
-                        string[] splittedMessage = filteredMessage.Split(", ".ToCharArray());
-                        currPos = new Vector3(float.Parse(splittedMessage[0], CultureInfo.InvariantCulture), float.Parse(splittedMessage[2], CultureInfo.InvariantCulture), float.Parse(splittedMessage[4], CultureInfo.InvariantCulture));
+                    Messages message_enum = 0;
+                    string message = "";
 
-                        // Receive rotation
-                        receivedMessage = clientStream.ReadLine();
-                        //receiveBytes = client.Receive(ref remoteEndPoint);
-                        // once the message is recieved, encode it as ASCII
-                        //receivedMessage = Encoding.ASCII.GetString(receiveBytes);
+                    if (receivedMessage.Contains(":"))
+                    {
+                        string[] splittedMessageType = receivedMessage.Split(":".ToCharArray());
+                        // convert string to correct enum type
+                        message_enum = (Messages)Enum.Parse(typeof(Messages), splittedMessageType[0]);
+                        message = splittedMessageType[1];
+                    }
+                    else
+                    {
+                        message_enum = (Messages)Enum.Parse(typeof(Messages), receivedMessage);
+                        message = receivedMessage;
+                    }
 
-                        //splittedMessage = receivedMessage.Split(" ");
-                        parenthesisIndex = receivedMessage.IndexOf(")");
-                        filteredMessage = receivedMessage.Substring(1, parenthesisIndex - 1);
-                        splittedMessage = filteredMessage.Split(", ".ToCharArray());
 
-                        currRot = new Quaternion(float.Parse(splittedMessage[0], CultureInfo.InvariantCulture), float.Parse(splittedMessage[2], CultureInfo.InvariantCulture), float.Parse(splittedMessage[4], CultureInfo.InvariantCulture), float.Parse(splittedMessage[6], CultureInfo.InvariantCulture));
+                    // switch action according to message
+                    switch (message_enum)
+                    {
+                        case Messages.DIST:
+                            Debug.Log("DIST: " + message);
+                            UDPReceiver.instance.wallDistance = 1 - float.Parse(message);
+                            break;
 
-                        lastMessageType = Messages.CAMERA_INFO;
-                        break;
+                            //case Messages.CAMERA_INFO:
+                            //    resetStart = bool.Parse(message);
 
-                    case Messages.SCENE_ROTATION:
-                        parenthesisIndex = message.IndexOf(")");
-                        filteredMessage = message.Substring(1, parenthesisIndex - 1);
-                        splittedMessage = filteredMessage.Split(", ".ToCharArray());
+                            //    // Receive positition
+                            //    receivedMessage = clientStream.ReadLine();
+                            //    // once the message is recieved, encode it as ASCII
+                            //    //receivedMessage = Encoding.ASCII.GetString(receiveBytes);
 
-                        currSceneRot = new Quaternion(float.Parse(splittedMessage[0], CultureInfo.InvariantCulture), float.Parse(splittedMessage[2], CultureInfo.InvariantCulture), float.Parse(splittedMessage[4], CultureInfo.InvariantCulture), float.Parse(splittedMessage[6], CultureInfo.InvariantCulture));
+                            //    int parenthesisIndex = receivedMessage.IndexOf(")");
+                            //    string filteredMessage = receivedMessage.Substring(1, parenthesisIndex - 1);
+                            //    //string filteredMessage = receivedMessage.Substring(1, -2);
+                            //    string[] splittedMessage = filteredMessage.Split(", ".ToCharArray());
+                            //    currPos = new Vector3(float.Parse(splittedMessage[0], CultureInfo.InvariantCulture), float.Parse(splittedMessage[2], CultureInfo.InvariantCulture), float.Parse(splittedMessage[4], CultureInfo.InvariantCulture));
 
-                        lastMessageType = Messages.SCENE_ROTATION;
-                        break;
+                            //    // Receive rotation
+                            //    receivedMessage = clientStream.ReadLine();
+                            //    //receiveBytes = client.Receive(ref remoteEndPoint);
+                            //    // once the message is recieved, encode it as ASCII
+                            //    //receivedMessage = Encoding.ASCII.GetString(receiveBytes);
 
-                    case Messages.SEND_NDI:
-                        lastMessageType = Messages.SEND_NDI;
-                        break;
+                            //    //splittedMessage = receivedMessage.Split(" ");
+                            //    parenthesisIndex = receivedMessage.IndexOf(")");
+                            //    filteredMessage = receivedMessage.Substring(1, parenthesisIndex - 1);
+                            //    splittedMessage = filteredMessage.Split(", ".ToCharArray());
 
-                    case Messages.SEND_DISPLAY:
-                        lastMessageType = Messages.SEND_DISPLAY;
-                        break;
+                            //    currRot = new Quaternion(float.Parse(splittedMessage[0], CultureInfo.InvariantCulture), float.Parse(splittedMessage[2], CultureInfo.InvariantCulture), float.Parse(splittedMessage[4], CultureInfo.InvariantCulture), float.Parse(splittedMessage[6], CultureInfo.InvariantCulture));
 
-                pipeClient.Close();
+                            //    lastMessageType = Messages.CAMERA_INFO;
+                            //    break;
+
+                            //case Messages.SCENE_ROTATION:
+                            //    parenthesisIndex = message.IndexOf(")");
+                            //    filteredMessage = message.Substring(1, parenthesisIndex - 1);
+                            //    splittedMessage = filteredMessage.Split(", ".ToCharArray());
+
+                            //    currSceneRot = new Quaternion(float.Parse(splittedMessage[0], CultureInfo.InvariantCulture), float.Parse(splittedMessage[2], CultureInfo.InvariantCulture), float.Parse(splittedMessage[4], CultureInfo.InvariantCulture), float.Parse(splittedMessage[6], CultureInfo.InvariantCulture));
+
+                            //    lastMessageType = Messages.SCENE_ROTATION;
+                            //    break;
+
+                            //case Messages.SEND_NDI:
+                            //    lastMessageType = Messages.SEND_NDI;
+                            //    break;
+
+                            //case Messages.SEND_DISPLAY:
+                            //    lastMessageType = Messages.SEND_DISPLAY;
+                            //    break;
+
+                            pipeClient.Close();
+                    }
                 }
             }
-            catch (Exception e)
-            {
-                print("Error: " + e.Message);
-            }
+            catch (Exception e){}
         }
     }
 
