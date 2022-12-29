@@ -44,7 +44,7 @@ public class UDPReceiver : MonoBehaviour
 
     public float wallDistance = 1;
 
-    cameraModes cameraMode;
+    eCameraModes cameraMode;
 
     enum Messages
     {
@@ -57,7 +57,7 @@ public class UDPReceiver : MonoBehaviour
         CHANGE_DISTANCE
     }
 
-    enum cameraModes
+    enum eCameraModes
     {
         FOLLOW,
         INVERTED
@@ -184,9 +184,9 @@ public class UDPReceiver : MonoBehaviour
         if (changeCamera)
         {
             Debug.Log("CHANGE CAMERA");
-            if (cameraMode == cameraModes.FOLLOW)
+            if (cameraMode == eCameraModes.FOLLOW)
                 ScreenCamera.transform.position += (remoteStartPos - currRemotePos);
-            else if (cameraMode == cameraModes.INVERTED)
+            else if (cameraMode == eCameraModes.INVERTED)
                 ScreenCamera.transform.position += (currRemotePos - remoteStartPos);
 
             changeCamera = false;
@@ -197,7 +197,12 @@ public class UDPReceiver : MonoBehaviour
             startPos = ScreenCamera.transform.position;
         }
 
-        Vector3 remotePosDiff = currRemotePos - remoteStartPos;
+        Vector3 remotePosDiff = new Vector3();
+        if (cameraMode == eCameraModes.FOLLOW)
+           remotePosDiff  = remoteStartPos - currRemotePos;
+        else if (cameraMode == eCameraModes.INVERTED)
+            remotePosDiff = currRemotePos - remoteStartPos;
+
         //Vector3 remotePosDiff = currPos - remoteStartPos;
         ScreenCamera.transform.position = (remotePosDiff * wallDistance) + startPos;
     }
@@ -209,7 +214,13 @@ public class UDPReceiver : MonoBehaviour
             startRot = ScreenCamera.transform.rotation;
         }
 
-        Vector3 remoteRotDiff = currRemoteRot.eulerAngles - remoteStartRot.eulerAngles;
+        Vector3 remoteRotDiff = new Vector3();
+        if (cameraMode == eCameraModes.FOLLOW)
+            remoteRotDiff = remoteStartRot.eulerAngles - currRemoteRot.eulerAngles;
+        else if (cameraMode == eCameraModes.INVERTED)
+            remoteRotDiff = currRemoteRot.eulerAngles - remoteStartRot.eulerAngles;
+
+
         Vector3 parallaxDiff = remoteRotDiff * wallDistance;
         ScreenCamera.transform.rotation = Quaternion.Euler(parallaxDiff + startRot.eulerAngles);
 
@@ -275,6 +286,7 @@ public class UDPReceiver : MonoBehaviour
     // Start is called before the first frame update
     void Start()
     {
+        cameraMode = eCameraModes.FOLLOW;
         //messagesToEvaluate = new Queue();
         lastMessageType = Messages.ALREADY_EVALUATED;
         resetStart = false;
@@ -329,11 +341,11 @@ public class UDPReceiver : MonoBehaviour
 
         if (Input.GetKeyDown(KeyCode.C))
         {
-            cameraMode = cameraModes.FOLLOW;
+            cameraMode = eCameraModes.FOLLOW;
         }
         if (Input.GetKeyDown(KeyCode.V))
         {
-            cameraMode = cameraModes.INVERTED;
+            cameraMode = eCameraModes.INVERTED;
         }
     }
 }
