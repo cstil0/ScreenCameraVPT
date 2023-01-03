@@ -88,7 +88,7 @@ public class PipesReceiver : MonoBehaviour
                     {
                         case Messages.DIST:
                             Debug.Log("DIST: " + message);
-                            UDPReceiver.instance.wallDistance = 1 - float.Parse(message);
+                            UDPReceiver.instance.wallDistance = float.Parse(message);
                             break;
 
                             //case Messages.CAMERA_INFO:

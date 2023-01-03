@@ -42,10 +42,10 @@ public class UDPReceiver : MonoBehaviour
 
     public RenderTexture screenTexture;
 
-    public float wallDistance = 1;
+    public float wallDistance = 0;
 
     eCameraModes cameraMode;
-
+    eParallaxType parallaxType;
     enum Messages
     {
         ALREADY_EVALUATED,
@@ -61,6 +61,12 @@ public class UDPReceiver : MonoBehaviour
     {
         FOLLOW,
         INVERTED
+    }
+
+    enum eParallaxType
+    {
+        BASIC,
+        MODELED
     }
 
     private void Awake()
@@ -204,8 +210,9 @@ public class UDPReceiver : MonoBehaviour
             remotePosDiff = currRemotePos - remoteStartPos;
 
         //Vector3 remotePosDiff = currPos - remoteStartPos;
-        ScreenCamera.transform.position = (remotePosDiff * wallDistance) + startPos;
-    }
+        // just a trick to make camera move slower with higher distance in an approximate way
+        ScreenCamera.transform.position = (remotePosDiff * (1 - wallDistance/100)) + startPos;
+        }
     void changeRot()
     {
         if (resetStart)
@@ -220,9 +227,22 @@ public class UDPReceiver : MonoBehaviour
         else if (cameraMode == eCameraModes.INVERTED)
             remoteRotDiff = currRemoteRot.eulerAngles - remoteStartRot.eulerAngles;
 
+        if (parallaxType == eParallaxType.BASIC)
+        {
+            Vector3 parallaxDiff = remoteRotDiff * (1 - wallDistance/100);
+            ScreenCamera.transform.rotation = Quaternion.Euler(parallaxDiff + startRot.eulerAngles);
+        }
 
-        Vector3 parallaxDiff = remoteRotDiff * wallDistance;
-        ScreenCamera.transform.rotation = Quaternion.Euler(parallaxDiff + startRot.eulerAngles);
+        else if (parallaxType == eParallaxType.MODELED)
+        {
+            if(wallDistance == 0) { wallDistance = 0.00001f; }
+            // apply parallax model
+            float focalLength = ScreenCamera.GetComponent<Camera>().focalLength;
+            Vector3 theta = (wallDistance - focalLength) * remoteRotDiff / wallDistance;
+            //Vector3 newRot = new Vector3(0, theta, 0);
+            ScreenCamera.transform.rotation = Quaternion.Euler(theta);
+        }
+
 
         //Quaternion remoteRotDiff = currRemoteRot * Quaternion.Inverse(remoteStartRot);
         //Quaternion parallaxDiff = new Quaternion(remoteRotDiff.x * wallDistance, remoteRotDiff.y * wallDistance, remoteRotDiff.z * wallDistance, remoteRotDiff.w * wallDistance);
@@ -286,7 +306,8 @@ public class UDPReceiver : MonoBehaviour
     // Start is called before the first frame update
     void Start()
     {
-        cameraMode = eCameraModes.FOLLOW;
+        cameraMode = eCameraModes.INVERTED;
+        parallaxType = eParallaxType.BASIC;
         //messagesToEvaluate = new Queue();
         lastMessageType = Messages.ALREADY_EVALUATED;
         resetStart = false;
@@ -346,6 +367,16 @@ public class UDPReceiver : MonoBehaviour
         if (Input.GetKeyDown(KeyCode.V))
         {
             cameraMode = eCameraModes.INVERTED;
+        }
+
+        if (Input.GetKeyDown(KeyCode.B))
+        {
+            parallaxType = eParallaxType.BASIC;
+        }
+
+        if (Input.GetKeyDown(KeyCode.N))
+        {
+            parallaxType = eParallaxType.MODELED;
         }
     }
 }
