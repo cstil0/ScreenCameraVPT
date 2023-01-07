@@ -40,6 +40,9 @@ public class UDPReceiver : MonoBehaviour
     Quaternion currRemoteRot;
     Quaternion currSceneRot;
 
+    [SerializeField] Vector3 originalCameraPos;
+    [SerializeField] Quaternion originalCameraRot;
+
     public RenderTexture screenTexture;
 
     public float wallDistance = 0;
@@ -54,7 +57,8 @@ public class UDPReceiver : MonoBehaviour
         SEND_NDI,
         SEND_DISPLAY,
         CHANGE_CAMERA,
-        CHANGE_DISTANCE
+        CHANGE_DISTANCE,
+        RESET_POSROT
     }
 
     enum eCameraModes
@@ -120,7 +124,6 @@ public class UDPReceiver : MonoBehaviour
                 {
                     case Messages.CAMERA_INFO:
                         resetStart = bool.Parse(message);
-                        Debug.Log("Reset: " + resetStart);
 
                         // Receive positition
                         receiveBytes = client.Receive(ref remoteEndPoint);
@@ -132,7 +135,6 @@ public class UDPReceiver : MonoBehaviour
                         //string filteredMessage = receivedMessage.Substring(1, -2);
                         string[] splittedMessage = filteredMessage.Split(", ".ToCharArray());
                         currRemotePos = new Vector3(float.Parse(splittedMessage[0], CultureInfo.InvariantCulture), float.Parse(splittedMessage[2], CultureInfo.InvariantCulture), float.Parse(splittedMessage[4], CultureInfo.InvariantCulture));
-                        Debug.Log("Pos: " + currRemotePos);
 
                         // Receive rotation
                         receiveBytes = client.Receive(ref remoteEndPoint);
@@ -145,7 +147,6 @@ public class UDPReceiver : MonoBehaviour
                         splittedMessage = filteredMessage.Split(", ".ToCharArray());
 
                         currRemoteRot = new Quaternion(float.Parse(splittedMessage[0], CultureInfo.InvariantCulture), float.Parse(splittedMessage[2], CultureInfo.InvariantCulture), float.Parse(splittedMessage[4], CultureInfo.InvariantCulture), float.Parse(splittedMessage[6], CultureInfo.InvariantCulture));
-                        Debug.Log("Rot: " + currRemoteRot.eulerAngles);
 
                         lastMessageType = Messages.CAMERA_INFO;
                         break;
@@ -175,6 +176,10 @@ public class UDPReceiver : MonoBehaviour
                     case Messages.CHANGE_DISTANCE:
                         wallDistance = float.Parse(message, CultureInfo.InvariantCulture);
                         break;
+
+                    case Messages.RESET_POSROT:
+                        lastMessageType = Messages.RESET_POSROT;
+                        break;
                 }
             }
             catch (Exception e)
@@ -189,6 +194,8 @@ public class UDPReceiver : MonoBehaviour
     {
         if (changeCamera)
         {
+            originalCameraPos = ScreenCamera.transform.position;
+            originalCameraRot = ScreenCamera.transform.rotation;
             Debug.Log("CHANGE CAMERA");
             if (cameraMode == eCameraModes.FOLLOW)
                 ScreenCamera.transform.position += (remoteStartPos - currRemotePos);
@@ -274,6 +281,13 @@ public class UDPReceiver : MonoBehaviour
         lastMessageType = Messages.ALREADY_EVALUATED;
     }
 
+    void resetPosRot()
+    {
+        Debug.Log("RESET POS ROT");
+        ScreenCamera.transform.position = originalCameraPos;
+        ScreenCamera.transform.rotation = originalCameraRot;
+    }
+
     //void evaluateMessage(String messageToEvaluate)
     //{
     //    Debug.Log(messageToEvaluate);
@@ -326,6 +340,9 @@ public class UDPReceiver : MonoBehaviour
         startPos = ScreenCamera.transform.position;
         //startRot = ScreenCamera.transform.rotation.eulerAngles;
         startRot = ScreenCamera.transform.rotation;
+
+        originalCameraPos = ScreenCamera.transform.position;
+        originalCameraRot = ScreenCamera.transform.rotation;
     }
 
     private void Update()
@@ -344,6 +361,9 @@ public class UDPReceiver : MonoBehaviour
                 break;
             case Messages.SEND_DISPLAY:
                 changeToDisplay();
+                break;
+            case Messages.RESET_POSROT:
+                resetPosRot();
                 break;
         }
 
