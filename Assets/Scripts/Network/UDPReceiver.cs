@@ -236,18 +236,31 @@ public class UDPReceiver : MonoBehaviour
 
         if (parallaxType == eParallaxType.BASIC)
         {
+            // convert distance from 0 to 1
             Vector3 parallaxDiff = remoteRotDiff * (1 - wallDistance/100);
             ScreenCamera.transform.rotation = Quaternion.Euler(parallaxDiff + startRot.eulerAngles);
         }
 
         else if (parallaxType == eParallaxType.MODELED)
         {
-            if(wallDistance == 0) { wallDistance = 0.00001f; }
-            // apply parallax model
-            float focalLength = ScreenCamera.GetComponent<Camera>().focalLength;
-            Vector3 theta = (wallDistance - focalLength) * remoteRotDiff / wallDistance;
-            //Vector3 newRot = new Vector3(0, theta, 0);
-            ScreenCamera.transform.rotation = Quaternion.Euler(theta);
+            if(wallDistance == 0) {
+                ScreenCamera.transform.rotation = Quaternion.Euler(remoteRotDiff) * startRot;
+            }
+            else
+            {
+                // apply parallax model
+                //float focalLength = ScreenCamera.GetComponent<Camera>().focalLength / 100;
+                //Vector3 theta = (wallDistance - focalLength) * remoteRotDiff / wallDistance;
+                Debug.Log("CURR REMOTE ROT: " + currRemoteRot.eulerAngles);
+                Debug.Log("REMOTE ROT DIFF: " + remoteRotDiff);
+                Debug.Log("START ROT: " + startRot.eulerAngles);
+                float maxDist = 100f;
+                Vector3 theta = (maxDist - wallDistance) * remoteRotDiff / maxDist;
+                //Vector3 newRot = new Vector3(0, theta, 0);
+                ScreenCamera.transform.rotation = Quaternion.Euler(theta.x, theta.y - 180, theta.z);
+                Debug.Log("THETA: " + theta);
+                Debug.Log("");
+            }
         }
 
 
@@ -286,6 +299,12 @@ public class UDPReceiver : MonoBehaviour
         Debug.Log("RESET POS ROT");
         ScreenCamera.transform.position = originalCameraPos;
         ScreenCamera.transform.rotation = originalCameraRot;
+
+        startPos = originalCameraPos;
+        startRot = originalCameraRot;
+
+        remoteStartPos = currRemotePos;
+        remoteStartRot = currRemoteRot;
     }
 
     //void evaluateMessage(String messageToEvaluate)
