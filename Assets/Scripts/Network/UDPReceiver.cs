@@ -7,6 +7,8 @@ using System.Threading;
 using System.Globalization;
 using System.Collections;
 using System.IO;
+using System.Runtime.InteropServices;
+using UnityEngine.EventSystems;
 
 public class UDPReceiver : MonoBehaviour
 {
@@ -40,6 +42,8 @@ public class UDPReceiver : MonoBehaviour
     Quaternion currRemoteRot;
     Quaternion currSceneRot;
 
+    Vector3 lastRemoteRotDiff;
+
     [SerializeField] Vector3 originalCameraPos;
     [SerializeField] Quaternion originalCameraRot;
 
@@ -48,7 +52,7 @@ public class UDPReceiver : MonoBehaviour
     public float wallDistance = 0;
 
     eCameraModes cameraMode;
-    eParallaxType parallaxType;
+    [SerializeField] eParallaxType parallaxType;
     enum Messages
     {
         ALREADY_EVALUATED,
@@ -228,34 +232,109 @@ public class UDPReceiver : MonoBehaviour
             startRot = ScreenCamera.transform.rotation;
         }
 
-        Vector3 remoteRotDiff = new Vector3();
+        //Vector3 remoteRotDiff = new Vector3();
+        Quaternion remoteRotDiff = new Quaternion();
         if (cameraMode == eCameraModes.FOLLOW)
-            remoteRotDiff = remoteStartRot.eulerAngles - currRemoteRot.eulerAngles;
+            remoteRotDiff = remoteStartRot * Quaternion.Inverse(currRemoteRot);
+        //remoteRotDiff = remoteStartRot.eulerAngles - currRemoteRot.eulerAngles;
         else if (cameraMode == eCameraModes.INVERTED)
-            remoteRotDiff = currRemoteRot.eulerAngles - remoteStartRot.eulerAngles;
+            remoteRotDiff = currRemoteRot * Quaternion.Inverse(remoteStartRot);
+        //remoteRotDiff = currRemoteRot.eulerAngles - remoteStartRot.eulerAngles;
+
+        //if (lastRemoteRot == new Quaternion(0.0f, 0.0f, 0.0f, 0.0f)|| resetStart)
+        //    lastRemoteRotDiff = remoteRotDiff;
+
+        //Vector3 lastCurrRotDiff = lastRemoteRotDiff - remoteRotDiff;
 
         if (parallaxType == eParallaxType.BASIC)
         {
+            //if (remoteRotDiff.z <= -180 || remoteRotDiff.z >= 180)
+            //{
+            //    int t = 0;
+            //}
+            //Debug.Log("START REMOTE ROT: " + remoteStartRot.eulerAngles);
+            //Debug.Log("CURR REMOTE ROT: " + currRemoteRot.eulerAngles);
+            Debug.Log("CURR REMOTE ROT: " + currRemoteRot.eulerAngles);
+            Debug.Log("ORIGINAL REMOTE ROT DIFF: " + remoteRotDiff);
+
             // convert distance from 0 to 1
-            Vector3 parallaxDiff = remoteRotDiff * (1 - wallDistance/100);
-            ScreenCamera.transform.rotation = Quaternion.Euler(parallaxDiff + startRot.eulerAngles);
+            //Vector3 parallaxDiff = remoteRotDiff * (wallDistance);
+            //if (Math.Abs(lastCurrRotDiff.x) >= 180)
+            //{
+            //    float abs = Math.Abs(lastCurrRotDiff.x);
+            //    float newX = lastCurrRotDiff.x - (360 * lastCurrRotDiff.x/ abs);
+            //    remoteRotDiff.x = newX;
+            //}
+
+            //else
+            //    lastRemoteRotDiff.x = remoteRotDiff.x;
+
+
+            //if (Math.Abs(lastCurrRotDiff.y) >= 180)
+            //{
+            //    float abs = Math.Abs(lastCurrRotDiff.y);
+            //    float newY = lastCurrRotDiff.y - (360 * lastCurrRotDiff.y / abs);
+            //    remoteRotDiff.y = newY;
+            //}
+            //else
+            //    lastRemoteRotDiff.y = remoteRotDiff.y;
+
+            //if (Math.Abs(lastCurrRotDiff.z) >= 180)
+            //{
+            //    float abs = Math.Abs(lastCurrRotDiff.z);
+            //    float newZ = lastCurrRotDiff.z - (360 * lastCurrRotDiff.z / abs);
+            //    remoteRotDiff.z = newZ;
+            //}
+            //else
+            //    lastRemoteRotDiff.z = remoteRotDiff.z;
+
+            float factor = (1 - wallDistance / 100);
+            Quaternion newRotation = Quaternion.Slerp(Quaternion.identity, remoteRotDiff, factor);
+            //Quaternion newRotation = Quaternion.Slerp(Quaternion.identity, Quaternion.Euler(remoteRotDiff), factor);
+            ScreenCamera.transform.rotation = newRotation * startRot;
+
+            //Vector3 parallaxDiff = remoteRotDiff * ;
+
+
+            //if (Math.Abs(lastCurrRotDiff.x) >= 180)
+            //    parallaxDiff.x += (360 * lastCurrRotDiff.x / Math.Abs(lastCurrRotDiff.x));
+
+
+            //if (Math.Abs(lastCurrRotDiff.y) >= 180)
+            //    parallaxDiff.y += (360 * lastCurrRotDiff.y / Math.Abs(lastCurrRotDiff.y));
+
+
+            //if (Math.Abs(lastCurrRotDiff.z) >= 180)
+            //    parallaxDiff.z += (360 * lastCurrRotDiff.z / Math.Abs(lastCurrRotDiff.z));
+
+            Debug.Log("CURR REMOTE ROT DIFF: " + remoteRotDiff);
+            Debug.Log("LAST REMOTE ROT DIFF: " + lastRemoteRotDiff);
+            //Debug.Log("RAW FINAL ROT: " + (parallaxDiff + startRot.eulerAngles));
+
+            //Vector3 parallaxDiffBloq = new Vector3(0.0f, parallaxDiff.y, 0.0f);
+            //ScreenCamera.transform.rotation = Quaternion.Euler(parallaxDiff + startRot.eulerAngles);
+            //ScreenCamera.transform.rotation = Quaternion.Euler(parallaxDiffBloq + startRot.eulerAngles);
+
+            //lastRemoteRotDiff = remoteRotDiff;
+
+            //remoteStartRot = currRemoteRot;
+            //startRot = ScreenCamera.transform.rotation;
         }
 
         else if (parallaxType == eParallaxType.MODELED)
         {
             if(wallDistance == 0) {
-                ScreenCamera.transform.rotation = Quaternion.Euler(remoteRotDiff) * startRot;
+                ScreenCamera.transform.rotation = remoteRotDiff * startRot;
+                //ScreenCamera.transform.rotation = Quaternion.Euler(remoteRotDiff) * startRot;
             }
             else
             {
                 // apply parallax model
                 //float focalLength = ScreenCamera.GetComponent<Camera>().focalLength / 100;
                 //Vector3 theta = (wallDistance - focalLength) * remoteRotDiff / wallDistance;
-                Debug.Log("CURR REMOTE ROT: " + currRemoteRot.eulerAngles);
-                Debug.Log("REMOTE ROT DIFF: " + remoteRotDiff);
-                Debug.Log("START ROT: " + startRot.eulerAngles);
                 float maxDist = 100f;
-                Vector3 theta = (maxDist - wallDistance) * remoteRotDiff / maxDist;
+                Vector3 theta = new Vector3();
+                //Vector3 theta = (maxDist - wallDistance) * remoteRotDiff / maxDist;
                 //Vector3 newRot = new Vector3(0, theta, 0);
                 ScreenCamera.transform.rotation = Quaternion.Euler(theta.x, theta.y - 180, theta.z);
                 Debug.Log("THETA: " + theta);
