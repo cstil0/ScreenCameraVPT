@@ -333,10 +333,12 @@ public class UDPReceiver : MonoBehaviour
                 //float focalLength = ScreenCamera.GetComponent<Camera>().focalLength / 100;
                 //Vector3 theta = (wallDistance - focalLength) * remoteRotDiff / wallDistance;
                 float maxDist = 100f;
-                Vector3 theta = new Vector3();
-                //Vector3 theta = (maxDist - wallDistance) * remoteRotDiff / maxDist;
+                //Vector3 theta = new Vector3();
+                float theta = (maxDist - wallDistance) / maxDist;
                 //Vector3 newRot = new Vector3(0, theta, 0);
-                ScreenCamera.transform.rotation = Quaternion.Euler(theta.x, theta.y - 180, theta.z);
+                Quaternion newRotation = Quaternion.Slerp(Quaternion.identity, remoteRotDiff, theta);
+
+                //ScreenCamera.transform.rotation = Quaternion.Euler(theta.x, theta.y - 180, theta.z);
                 Debug.Log("THETA: " + theta);
                 Debug.Log("");
             }
@@ -467,13 +469,13 @@ public class UDPReceiver : MonoBehaviour
 
         if (Input.GetKeyDown(KeyCode.A))
         {
-            float tempDist = wallDistance + 0.05f;
+            float tempDist = wallDistance - 10f;
             if (tempDist <= 1.0f)
                 wallDistance = tempDist;
         }
         if (Input.GetKeyDown(KeyCode.S))
         {
-            float tempDist = wallDistance - 0.05f;
+            float tempDist = wallDistance + 10f;
             if (tempDist >= 0.0f)
                 wallDistance = tempDist;
         }
