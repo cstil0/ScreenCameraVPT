@@ -44,6 +44,7 @@ public class UDPReceiver : MonoBehaviour
 
     Vector3 lastRemoteRotDiff;
 
+    // the difference between original and start is that original is used to fully reset the position while start from the last time the camera was moved
     [SerializeField] Vector3 originalCameraPos;
     [SerializeField] Quaternion originalCameraRot;
 
@@ -174,7 +175,8 @@ public class UDPReceiver : MonoBehaviour
                         break;
 
                     case Messages.CHANGE_CAMERA:
-                        changeCamera = true;
+                        //changeCamera = true;
+                        lastMessageType= Messages.CHANGE_CAMERA;
                         break;
 
                     case Messages.CHANGE_DISTANCE:
@@ -193,21 +195,25 @@ public class UDPReceiver : MonoBehaviour
         }
     }
 
+    IEnumerator computeChangeCamera()
+    {
+        // wait until the position of the camera is sended to know where to move it
+        while (lastMessageType != Messages.CAMERA_INFO)
+            yield return null;
+
+        Debug.Log("CHANGE CAMERA");
+        if (cameraMode == eCameraModes.FOLLOW)
+            ScreenCamera.transform.position += (remoteStartPos - currRemotePos);
+        else if (cameraMode == eCameraModes.INVERTED)
+            ScreenCamera.transform.position += (remoteStartPos - currRemotePos);
+
+        originalCameraPos = ScreenCamera.transform.position;
+        originalCameraRot = ScreenCamera.transform.rotation;
+        //changeCamera = false;
+    }
 
     void changePos()
     {
-        if (changeCamera)
-        {
-            originalCameraPos = ScreenCamera.transform.position;
-            originalCameraRot = ScreenCamera.transform.rotation;
-            Debug.Log("CHANGE CAMERA");
-            if (cameraMode == eCameraModes.FOLLOW)
-                ScreenCamera.transform.position += (remoteStartPos - currRemotePos);
-            else if (cameraMode == eCameraModes.INVERTED)
-                ScreenCamera.transform.position += (currRemotePos - remoteStartPos);
-
-            changeCamera = false;
-        }
         if (resetStart)
         {
             remoteStartPos = new Vector3(currRemotePos.x, currRemotePos.y, currRemotePos.z);
@@ -218,7 +224,7 @@ public class UDPReceiver : MonoBehaviour
         if (cameraMode == eCameraModes.FOLLOW)
            remotePosDiff  = remoteStartPos - currRemotePos;
         else if (cameraMode == eCameraModes.INVERTED)
-            remotePosDiff = currRemotePos - remoteStartPos;
+            remotePosDiff = remoteStartPos - currRemotePos;
 
         //Vector3 remotePosDiff = currPos - remoteStartPos;
         // just a trick to make camera move slower with higher distance in an approximate way
@@ -464,6 +470,9 @@ public class UDPReceiver : MonoBehaviour
                 break;
             case Messages.RESET_POSROT:
                 resetPosRot();
+                break;
+            case Messages.CHANGE_CAMERA:
+                StartCoroutine(computeChangeCamera());
                 break;
         }
 
