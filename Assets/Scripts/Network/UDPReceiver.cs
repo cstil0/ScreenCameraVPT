@@ -23,7 +23,9 @@ public class UDPReceiver : MonoBehaviour
 
     Messages lastMessageType;
 
+    [SerializeField] Transform camerasContainer;
     public Camera ScreenCamera;
+
     Vector3 startPos;
     Vector3 remoteStartPos;
     Vector3 currRemotePos;
@@ -33,6 +35,7 @@ public class UDPReceiver : MonoBehaviour
 
     bool resetStart;
     bool changeCamera;
+    int currActiveCamera;
 
     //Vector3 startRot;
     Quaternion startRot;
@@ -52,7 +55,7 @@ public class UDPReceiver : MonoBehaviour
 
     public float wallDistance = 0;
 
-    eCameraModes cameraMode;
+    [SerializeField] eCameraModes cameraMode;
     [SerializeField] eParallaxType parallaxType;
     enum Messages
     {
@@ -130,6 +133,7 @@ public class UDPReceiver : MonoBehaviour
                     case Messages.CAMERA_INFO:
                         resetStart = bool.Parse(message);
 
+                        Debug.Log("RESET START: " + resetStart);
                         // Receive positition
                         receiveBytes = client.Receive(ref remoteEndPoint);
                         // once the message is recieved, encode it as ASCII
@@ -140,6 +144,7 @@ public class UDPReceiver : MonoBehaviour
                         //string filteredMessage = receivedMessage.Substring(1, -2);
                         string[] splittedMessage = filteredMessage.Split(", ".ToCharArray());
                         currRemotePos = new Vector3(float.Parse(splittedMessage[0], CultureInfo.InvariantCulture), float.Parse(splittedMessage[2], CultureInfo.InvariantCulture), float.Parse(splittedMessage[4], CultureInfo.InvariantCulture));
+                        Debug.Log("POS RECEIVED: " + currRemotePos);
 
                         // Receive rotation
                         receiveBytes = client.Receive(ref remoteEndPoint);
@@ -152,6 +157,7 @@ public class UDPReceiver : MonoBehaviour
                         splittedMessage = filteredMessage.Split(", ".ToCharArray());
 
                         currRemoteRot = new Quaternion(float.Parse(splittedMessage[0], CultureInfo.InvariantCulture), float.Parse(splittedMessage[2], CultureInfo.InvariantCulture), float.Parse(splittedMessage[4], CultureInfo.InvariantCulture), float.Parse(splittedMessage[6], CultureInfo.InvariantCulture));
+                        Debug.Log("ROT RECEIVED: " + currRemoteRot);
 
                         lastMessageType = Messages.CAMERA_INFO;
                         break;
@@ -177,6 +183,8 @@ public class UDPReceiver : MonoBehaviour
                     case Messages.CHANGE_CAMERA:
                         //changeCamera = true;
                         lastMessageType= Messages.CHANGE_CAMERA;
+                        currActiveCamera = int.Parse(message);
+                        Debug.Log("CHANGE OF CAMERA RECEIVED: " + currActiveCamera);
                         break;
 
                     case Messages.CHANGE_DISTANCE:
@@ -195,18 +203,15 @@ public class UDPReceiver : MonoBehaviour
         }
     }
 
-    IEnumerator computeChangeCamera()
+    void computeChangeCamera()
     {
-        // wait until the position of the camera is sended to know where to move it
-        while (lastMessageType != Messages.CAMERA_INFO)
-            yield return null;
+        ScreenCamera.targetTexture = null;
+        GameObject screenCameraGO = camerasContainer.GetChild(currActiveCamera - 1).gameObject;
+        ScreenCamera = screenCameraGO.GetComponent<Camera>();
+        ScreenCamera.targetTexture = screenTexture;
 
-        Debug.Log("CHANGE CAMERA");
-        if (cameraMode == eCameraModes.FOLLOW)
-            ScreenCamera.transform.position += (remoteStartPos - currRemotePos);
-        else if (cameraMode == eCameraModes.INVERTED)
-            ScreenCamera.transform.position += (remoteStartPos - currRemotePos);
-
+        startPos = ScreenCamera.transform.position;
+        startRot = ScreenCamera.transform.rotation;
         originalCameraPos = ScreenCamera.transform.position;
         originalCameraRot = ScreenCamera.transform.rotation;
         //changeCamera = false;
@@ -245,6 +250,7 @@ public class UDPReceiver : MonoBehaviour
         //remoteRotDiff = remoteStartRot.eulerAngles - currRemoteRot.eulerAngles;
         else if (cameraMode == eCameraModes.INVERTED)
             remoteRotDiff = currRemoteRot * Quaternion.Inverse(remoteStartRot);
+
         //remoteRotDiff = currRemoteRot.eulerAngles - remoteStartRot.eulerAngles;
 
         //if (lastRemoteRot == new Quaternion(0.0f, 0.0f, 0.0f, 0.0f)|| resetStart)
@@ -254,77 +260,11 @@ public class UDPReceiver : MonoBehaviour
 
         if (parallaxType == eParallaxType.BASIC)
         {
-            //if (remoteRotDiff.z <= -180 || remoteRotDiff.z >= 180)
-            //{
-            //    int t = 0;
-            //}
-            //Debug.Log("START REMOTE ROT: " + remoteStartRot.eulerAngles);
-            //Debug.Log("CURR REMOTE ROT: " + currRemoteRot.eulerAngles);
-            Debug.Log("CURR REMOTE ROT: " + currRemoteRot.eulerAngles);
-            Debug.Log("ORIGINAL REMOTE ROT DIFF: " + remoteRotDiff);
-
-            // convert distance from 0 to 1
-            //Vector3 parallaxDiff = remoteRotDiff * (wallDistance);
-            //if (Math.Abs(lastCurrRotDiff.x) >= 180)
-            //{
-            //    float abs = Math.Abs(lastCurrRotDiff.x);
-            //    float newX = lastCurrRotDiff.x - (360 * lastCurrRotDiff.x/ abs);
-            //    remoteRotDiff.x = newX;
-            //}
-
-            //else
-            //    lastRemoteRotDiff.x = remoteRotDiff.x;
-
-
-            //if (Math.Abs(lastCurrRotDiff.y) >= 180)
-            //{
-            //    float abs = Math.Abs(lastCurrRotDiff.y);
-            //    float newY = lastCurrRotDiff.y - (360 * lastCurrRotDiff.y / abs);
-            //    remoteRotDiff.y = newY;
-            //}
-            //else
-            //    lastRemoteRotDiff.y = remoteRotDiff.y;
-
-            //if (Math.Abs(lastCurrRotDiff.z) >= 180)
-            //{
-            //    float abs = Math.Abs(lastCurrRotDiff.z);
-            //    float newZ = lastCurrRotDiff.z - (360 * lastCurrRotDiff.z / abs);
-            //    remoteRotDiff.z = newZ;
-            //}
-            //else
-            //    lastRemoteRotDiff.z = remoteRotDiff.z;
-
-            float factor = (1 - wallDistance / 100);
-            Quaternion newRotation = Quaternion.Slerp(Quaternion.identity, remoteRotDiff, factor);
-            //Quaternion newRotation = Quaternion.Slerp(Quaternion.identity, Quaternion.Euler(remoteRotDiff), factor);
-            ScreenCamera.transform.rotation = newRotation * startRot;
-
-            //Vector3 parallaxDiff = remoteRotDiff * ;
-
-
-            //if (Math.Abs(lastCurrRotDiff.x) >= 180)
-            //    parallaxDiff.x += (360 * lastCurrRotDiff.x / Math.Abs(lastCurrRotDiff.x));
-
-
-            //if (Math.Abs(lastCurrRotDiff.y) >= 180)
-            //    parallaxDiff.y += (360 * lastCurrRotDiff.y / Math.Abs(lastCurrRotDiff.y));
-
-
-            //if (Math.Abs(lastCurrRotDiff.z) >= 180)
-            //    parallaxDiff.z += (360 * lastCurrRotDiff.z / Math.Abs(lastCurrRotDiff.z));
-
-            Debug.Log("CURR REMOTE ROT DIFF: " + remoteRotDiff);
-            Debug.Log("LAST REMOTE ROT DIFF: " + lastRemoteRotDiff);
-            //Debug.Log("RAW FINAL ROT: " + (parallaxDiff + startRot.eulerAngles));
-
-            //Vector3 parallaxDiffBloq = new Vector3(0.0f, parallaxDiff.y, 0.0f);
-            //ScreenCamera.transform.rotation = Quaternion.Euler(parallaxDiff + startRot.eulerAngles);
-            //ScreenCamera.transform.rotation = Quaternion.Euler(parallaxDiffBloq + startRot.eulerAngles);
-
-            //lastRemoteRotDiff = remoteRotDiff;
-
-            //remoteStartRot = currRemoteRot;
-            //startRot = ScreenCamera.transform.rotation;
+            Vector3 newRotationVec = (remoteRotDiff.eulerAngles * (1 - wallDistance / 100)) + startRot.eulerAngles;
+            ScreenCamera.transform.rotation = Quaternion.Euler(newRotationVec);
+            //Quaternion newRotation = Quaternion.Slerp(Quaternion.identity, remoteRotDiff, factor);
+            //float factor = (1 - wallDistance / 100);
+            //ScreenCamera.transform.rotation = newRotation * startRot;
         }
 
         else if (parallaxType == eParallaxType.MODELED)
@@ -426,7 +366,7 @@ public class UDPReceiver : MonoBehaviour
     // Start is called before the first frame update
     void Start()
     {
-        cameraMode = eCameraModes.INVERTED;
+        cameraMode = eCameraModes.FOLLOW;
         parallaxType = eParallaxType.BASIC;
         //messagesToEvaluate = new Queue();
         lastMessageType = Messages.ALREADY_EVALUATED;
@@ -472,7 +412,7 @@ public class UDPReceiver : MonoBehaviour
                 resetPosRot();
                 break;
             case Messages.CHANGE_CAMERA:
-                StartCoroutine(computeChangeCamera());
+                computeChangeCamera();
                 break;
         }
 
