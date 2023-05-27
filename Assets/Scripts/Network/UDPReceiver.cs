@@ -65,7 +65,7 @@ public class UDPReceiver : MonoBehaviour
         SEND_NDI,
         SEND_DISPLAY,
         CHANGE_CAMERA,
-        CHANGE_DISTANCE,
+        CHANGE_SCREEN_DISTANCE,
         RESET_POSROT
     }
 
@@ -187,7 +187,7 @@ public class UDPReceiver : MonoBehaviour
                         Debug.Log("CHANGE OF CAMERA RECEIVED: " + currActiveCamera);
                         break;
 
-                    case Messages.CHANGE_DISTANCE:
+                    case Messages.CHANGE_SCREEN_DISTANCE:
                         wallDistance = float.Parse(message, CultureInfo.InvariantCulture);
                         break;
 
