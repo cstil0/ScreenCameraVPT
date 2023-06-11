@@ -18,8 +18,7 @@ public class UDPReceiver : MonoBehaviour
     public int serverPort;
     Thread receiveThread;
     Thread evaluateThread;
-    String receivedMessage;
-    Queue messagesToEvaluate;
+    string receivedMessage;
 
     Messages lastMessageType;
 
@@ -34,18 +33,12 @@ public class UDPReceiver : MonoBehaviour
     Quaternion lastRemoteRot;
 
     bool resetStart;
-    bool changeCamera;
     int currActiveCamera;
 
-    //Vector3 startRot;
     Quaternion startRot;
-    //Vector3 remoteStartRot;
     Quaternion remoteStartRot;
-    //Vector3 currRemoteRot;
     Quaternion currRemoteRot;
     Quaternion currSceneRot;
-
-    Vector3 lastRemoteRotDiff;
 
     // the difference between original and start is that original is used to fully reset the position while start from the last time the camera was moved
     [SerializeField] Vector3 originalCameraPos;
@@ -133,7 +126,6 @@ public class UDPReceiver : MonoBehaviour
                     case Messages.CAMERA_INFO:
                         resetStart = bool.Parse(message);
 
-                        Debug.Log("RESET START: " + resetStart);
                         // Receive positition
                         receiveBytes = client.Receive(ref remoteEndPoint);
                         // once the message is recieved, encode it as ASCII
@@ -144,20 +136,17 @@ public class UDPReceiver : MonoBehaviour
                         //string filteredMessage = receivedMessage.Substring(1, -2);
                         string[] splittedMessage = filteredMessage.Split(", ".ToCharArray());
                         currRemotePos = new Vector3(float.Parse(splittedMessage[0], CultureInfo.InvariantCulture), float.Parse(splittedMessage[2], CultureInfo.InvariantCulture), float.Parse(splittedMessage[4], CultureInfo.InvariantCulture));
-                        Debug.Log("POS RECEIVED: " + currRemotePos);
 
                         // Receive rotation
                         receiveBytes = client.Receive(ref remoteEndPoint);
                         // once the message is recieved, encode it as ASCII
                         receivedMessage = Encoding.ASCII.GetString(receiveBytes);
 
-                        //splittedMessage = receivedMessage.Split(" ");
                         parenthesisIndex = receivedMessage.IndexOf(")");
                         filteredMessage = receivedMessage.Substring(1, parenthesisIndex - 1);
                         splittedMessage = filteredMessage.Split(", ".ToCharArray());
 
                         currRemoteRot = new Quaternion(float.Parse(splittedMessage[0], CultureInfo.InvariantCulture), float.Parse(splittedMessage[2], CultureInfo.InvariantCulture), float.Parse(splittedMessage[4], CultureInfo.InvariantCulture), float.Parse(splittedMessage[6], CultureInfo.InvariantCulture));
-                        Debug.Log("ROT RECEIVED: " + currRemoteRot);
 
                         lastMessageType = Messages.CAMERA_INFO;
                         break;
@@ -181,10 +170,8 @@ public class UDPReceiver : MonoBehaviour
                         break;
 
                     case Messages.CHANGE_CAMERA:
-                        //changeCamera = true;
                         lastMessageType= Messages.CHANGE_CAMERA;
                         currActiveCamera = int.Parse(message);
-                        Debug.Log("CHANGE OF CAMERA RECEIVED: " + currActiveCamera);
                         break;
 
                     case Messages.CHANGE_SCREEN_DISTANCE:
@@ -214,7 +201,6 @@ public class UDPReceiver : MonoBehaviour
         startRot = ScreenCamera.transform.rotation;
         originalCameraPos = ScreenCamera.transform.position;
         originalCameraRot = ScreenCamera.transform.rotation;
-        //changeCamera = false;
     }
 
     void changePos()
@@ -231,7 +217,6 @@ public class UDPReceiver : MonoBehaviour
         else if (cameraMode == eCameraModes.INVERTED)
             remotePosDiff = remoteStartPos - currRemotePos;
 
-        //Vector3 remotePosDiff = currPos - remoteStartPos;
         // just a trick to make camera move slower with higher distance in an approximate way
         ScreenCamera.transform.position = (remotePosDiff * (1 - wallDistance/100)) + startPos;
         }
@@ -243,57 +228,36 @@ public class UDPReceiver : MonoBehaviour
             startRot = ScreenCamera.transform.rotation;
         }
 
-        //Vector3 remoteRotDiff = new Vector3();
         Quaternion remoteRotDiff = new Quaternion();
+        // compute difference depending on the movement mode
         if (cameraMode == eCameraModes.FOLLOW)
             remoteRotDiff = remoteStartRot * Quaternion.Inverse(currRemoteRot);
-        //remoteRotDiff = remoteStartRot.eulerAngles - currRemoteRot.eulerAngles;
         else if (cameraMode == eCameraModes.INVERTED)
             remoteRotDiff = currRemoteRot * Quaternion.Inverse(remoteStartRot);
 
-        //remoteRotDiff = currRemoteRot.eulerAngles - remoteStartRot.eulerAngles;
-
-        //if (lastRemoteRot == new Quaternion(0.0f, 0.0f, 0.0f, 0.0f)|| resetStart)
-        //    lastRemoteRotDiff = remoteRotDiff;
-
-        //Vector3 lastCurrRotDiff = lastRemoteRotDiff - remoteRotDiff;
-
+        // compute basic motion parallax mode
         if (parallaxType == eParallaxType.BASIC)
         {
             Vector3 newRotationVec = (remoteRotDiff.eulerAngles * (1 - wallDistance / 100)) + startRot.eulerAngles;
             ScreenCamera.transform.rotation = Quaternion.Euler(newRotationVec);
-            //Quaternion newRotation = Quaternion.Slerp(Quaternion.identity, remoteRotDiff, factor);
-            //float factor = (1 - wallDistance / 100);
-            //ScreenCamera.transform.rotation = newRotation * startRot;
         }
 
+        // compute modeled motion parallax mode
         else if (parallaxType == eParallaxType.MODELED)
         {
             if(wallDistance == 0) {
                 ScreenCamera.transform.rotation = remoteRotDiff * startRot;
-                //ScreenCamera.transform.rotation = Quaternion.Euler(remoteRotDiff) * startRot;
             }
             else
             {
-                // apply parallax model
-                //float focalLength = ScreenCamera.GetComponent<Camera>().focalLength / 100;
-                //Vector3 theta = (wallDistance - focalLength) * remoteRotDiff / wallDistance;
                 float maxDist = 100f;
-                //Vector3 theta = new Vector3();
-                float theta = (maxDist - wallDistance) / maxDist;
-                //Vector3 newRot = new Vector3(0, theta, 0);
-                Quaternion newRotation = Quaternion.Slerp(Quaternion.identity, remoteRotDiff, theta);
+                float factor = (maxDist - wallDistance) / maxDist;
 
-                //ScreenCamera.transform.rotation = Quaternion.Euler(theta.x, theta.y - 180, theta.z);
-                Debug.Log("THETA: " + theta);
-                Debug.Log("");
+                Vector3 alpha = remoteRotDiff.eulerAngles;
+                Quaternion theta = Quaternion.Euler(factor * alpha.x, factor * alpha.y, factor * alpha.z);
+                ScreenCamera.transform.rotation = theta;
             }
         }
-
-
-        //Quaternion remoteRotDiff = currRemoteRot * Quaternion.Inverse(remoteStartRot);
-        //Quaternion parallaxDiff = new Quaternion(remoteRotDiff.x * wallDistance, remoteRotDiff.y * wallDistance, remoteRotDiff.z * wallDistance, remoteRotDiff.w * wallDistance);
-        //ScreenCamera.transform.rotation = parallaxDiff * startRot;
 
         lastMessageType = Messages.ALREADY_EVALUATED;
     }
@@ -323,7 +287,6 @@ public class UDPReceiver : MonoBehaviour
 
     void resetPosRot()
     {
-        Debug.Log("RESET POS ROT");
         ScreenCamera.transform.position = originalCameraPos;
         ScreenCamera.transform.rotation = originalCameraRot;
 
@@ -333,24 +296,6 @@ public class UDPReceiver : MonoBehaviour
         remoteStartPos = currRemotePos;
         remoteStartRot = currRemoteRot;
     }
-
-    //void evaluateMessage(String messageToEvaluate)
-    //{
-    //    Debug.Log(messageToEvaluate);
-    //}
-
-    //void readMessagesToEvaluate()
-    //{
-    //    while (true)
-    //    {
-    //        try
-    //        {
-    //           // get the first message that was added, evaluate it and eliminate it from the queue
-    //           evaluateMessage(messagesToEvaluate.Dequeue().ToString());
-    //        }
-    //        catch (Exception e) {}
-    //    }
-    //} 
 
     void OnDisable()
     {
@@ -366,25 +311,18 @@ public class UDPReceiver : MonoBehaviour
     // Start is called before the first frame update
     void Start()
     {
+        // set computation modes by default
         cameraMode = eCameraModes.FOLLOW;
         parallaxType = eParallaxType.BASIC;
-        //messagesToEvaluate = new Queue();
         lastMessageType = Messages.ALREADY_EVALUATED;
         resetStart = false;
-        changeCamera = false;
 
         // Start thread to listen UDP messages and set it as background
         receiveThread = new Thread(ReceiveUDP);
         receiveThread.IsBackground = true;
         receiveThread.Start();
 
-        // Start thread to read and evaluate the messages and set it as background
-        //evaluateThread = new Thread(readMessagesToEvaluate);
-        //evaluateThread.IsBackground = true;
-        //evaluateThread.Start();
-
         startPos = ScreenCamera.transform.position;
-        //startRot = ScreenCamera.transform.rotation.eulerAngles;
         startRot = ScreenCamera.transform.rotation;
 
         originalCameraPos = ScreenCamera.transform.position;
@@ -428,7 +366,8 @@ public class UDPReceiver : MonoBehaviour
             if (tempDist >= 0.0f)
                 wallDistance = tempDist;
         }
-
+        
+        // change computation modes
         if (Input.GetKeyDown(KeyCode.C))
         {
             cameraMode = eCameraModes.FOLLOW;

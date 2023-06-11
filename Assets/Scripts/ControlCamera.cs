@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using UnityEditor.UIElements;
 using UnityEngine;
 
+// this script was used to test some of the cameras parameters to visualize motion parallax, but it is currently unused
 public class ControlCamera : MonoBehaviour
 {
     // Start is called before the first frame update

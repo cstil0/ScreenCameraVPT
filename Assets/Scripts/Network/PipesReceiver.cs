@@ -5,10 +5,8 @@ using System;
 using System.IO;
 using System.IO.Pipes;
 using System.Threading;
-using System.Security.Principal;
-using System.Text;
-using System.Globalization;
 
+// this script was used to communicate the multi-camera application with the screen one, although now it is done by sending the messages first to the VR application, so this script is currently unused
 public class PipesReceiver : MonoBehaviour
 {
     // udpclient object
@@ -26,11 +24,8 @@ public class PipesReceiver : MonoBehaviour
     Vector3 currPos;
 
     bool resetStart;
-    //Vector3 startRot;
     Quaternion startRot;
-    //Vector3 remoteStartRot;
     Quaternion remoteStartRot;
-    //Vector3 currRot;
     Quaternion currRot;
     Quaternion currSceneRot;
 
@@ -231,7 +226,6 @@ public class PipesReceiver : MonoBehaviour
     // Start is called before the first frame update
     void Start()
     {
-        //messagesToEvaluate = new Queue();
         lastMessageType = Messages.ALREADY_EVALUATED;
         resetStart = false;
 
@@ -240,13 +234,7 @@ public class PipesReceiver : MonoBehaviour
         receiveThread.IsBackground = true;
         receiveThread.Start();
 
-        // Start thread to read and evaluate the messages and set it as background
-        //evaluateThread = new Thread(readMessagesToEvaluate);
-        //evaluateThread.IsBackground = true;
-        //evaluateThread.Start();
-
         startPos = ScreenCamera.transform.position;
-        //startRot = ScreenCamera.transform.rotation.eulerAngles;
         startRot = ScreenCamera.transform.rotation;
     }
 
