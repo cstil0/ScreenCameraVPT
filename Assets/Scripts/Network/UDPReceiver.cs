@@ -76,8 +76,6 @@ public class UDPReceiver : MonoBehaviour
         MODELED
     }
 
-    // BORRAR!!!!!!!!!!!!!!!!!!!!
-    int lastCount = 1;
     private void Awake()
     {
         // If there is an instance, and it's not me, delete myself.
@@ -115,7 +113,6 @@ public class UDPReceiver : MonoBehaviour
 
     void computeChangeCamera()
     {
-        Debug.Log("CHANGE CAMERA RECEIVED");
         ScreenCamera.targetTexture = null;
         GameObject screenCameraGO = camerasContainer.GetChild(currActiveCamera - 1).gameObject;
         ScreenCamera = screenCameraGO.GetComponent<Camera>();
@@ -139,7 +136,6 @@ public class UDPReceiver : MonoBehaviour
     {
         if (resetStart)
         {
-            Debug.Log("RESETING START POS");
             remoteStartPos = new Vector3(currRemotePos.x, currRemotePos.y, currRemotePos.z);
             startPos = ScreenCamera.transform.position;
         }
@@ -160,50 +156,30 @@ public class UDPReceiver : MonoBehaviour
         {
             remoteStartRot = new Quaternion(currRemoteRot.x, currRemoteRot.y, currRemoteRot.z, currRemoteRot.w);
             startRot = ScreenCamera.transform.rotation;
-            Debug.Log("RESETING START ROT: " + remoteStartRot.eulerAngles);
         }
 
         // compute difference depending on the movement mode
         if (cameraMode == eCameraModes.FOLLOW)
-            remoteRotDiff = remoteStartRot * Quaternion.Inverse(currRemoteRot);
+            remoteRotDiff = Quaternion.Inverse(currRemoteRot) * remoteStartRot;
         else if (cameraMode == eCameraModes.INVERTED)
-        {
-            //Vector3 remoteStartRotVec = remoteStartRot.eulerAngles;
-            Vector3 remoteStartRotVec = originalCameraRot.eulerAngles;
-            Vector3 currRemoteRotVec = currRemoteRot.eulerAngles;
-            Debug.Log("REMOTE CURR ROT: " + currRemoteRot.eulerAngles);
             remoteRotDiff = Quaternion.Inverse(remoteStartRot) * currRemoteRot;
 
-            //remoteRotDiff = Quaternion.Euler(currRemoteRotVec - remoteStartRotVec);
-            //remoteRotDiff = Quaternion.Euler(remoteStartRotVec.x - currRemoteRotVec.x, currRemoteRotVec.y - remoteStartRotVec.y, currRemoteRotVec.z - remoteStartRotVec.z);
-            Debug.Log("REMOTE DIFF: " + remoteRotDiff.eulerAngles);
-        }
-
-        //// compute basic motion parallax mode
+        // compute basic motion parallax mode
         if (parallaxType == eParallaxType.BASIC)
         {
             float speedFactor = (1 - wallDistance / 100);
             newRotation = Quaternion.Slerp(startRot, remoteRotDiff, speedFactor);
-            //newRotation = startRot * new Quaternion(remoteRotDiff.x * speedFactor, remoteRotDiff.y * speedFactor, remoteRotDiff.z * speedFactor, remoteRotDiff.w * speedFactor);
-            //newRotationVec = (remoteRotDiff.eulerAngles * (1 - wallDistance / 100)) + startRot.eulerAngles;
-            //ScreenCamera.transform.rotation = Quaternion.Euler(newRotationVec);
         }
 
         // compute modeled motion parallax mode
         else if (parallaxType == eParallaxType.MODELED)
         {
-            if(wallDistance == 0) {
-                ScreenCamera.transform.rotation = remoteRotDiff * startRot;
-            }
-            else
-            {
-                float maxDist = 100f;
-                float factor = (maxDist - wallDistance) / maxDist;
+            float maxDist = 100f;
+            float factor = (maxDist - wallDistance) / maxDist;
 
-                Vector3 alpha = remoteRotDiff.eulerAngles;
-                Quaternion theta = Quaternion.Euler(factor * alpha.x, factor * alpha.y, factor * alpha.z);
-                newRotation = theta;
-            }
+            Quaternion alpha = remoteRotDiff;
+            Quaternion theta = Quaternion.Slerp(startRot, alpha, factor);
+            newRotation = theta;
         }
 
         newRotationParsed = false;
@@ -212,7 +188,6 @@ public class UDPReceiver : MonoBehaviour
     void rotateScene(float rotationAngle)
     {
         Vector3 rotation = new Vector3(0.0f, -rotationAngle, 0.0f);
-        //Quaternion rotation = Quaternion.Euler(0.0f, rotationAngle, 0.0f);
         newSceneRotation = Quaternion.Euler(rotation + camerasContainer.transform.rotation.eulerAngles);
         newSceneRotationParsed = false;
     }
@@ -253,7 +228,7 @@ public class UDPReceiver : MonoBehaviour
 
         client.Close();
     }
-    // Start is called before the first frame update
+
     void Start()
     {
         // set computation modes by default
@@ -288,8 +263,6 @@ public class UDPReceiver : MonoBehaviour
                 case Messages.CAMERA_INFO:
                     string[] splittedInfo = splittedMessage[1].Split("#".ToCharArray());
                     resetStart = bool.Parse(splittedInfo[0]);
-                    if (resetStart)
-                        Debug.Log("MATCH RESET: " + resetStart);
                     string remotePosRaw = splittedInfo[1];
                     string remoteRotRaw = splittedInfo[2];
 
@@ -302,26 +275,12 @@ public class UDPReceiver : MonoBehaviour
                     filteredMessage = remoteRotRaw.Substring(1, parenthesisIndex - 1);
                     string[] splittedRot = filteredMessage.Split(", ".ToCharArray());
                     currRemoteRot = new Quaternion(float.Parse(splittedRot[0], CultureInfo.InvariantCulture), float.Parse(splittedRot[2], CultureInfo.InvariantCulture), float.Parse(splittedRot[4], CultureInfo.InvariantCulture), float.Parse(splittedRot[6], CultureInfo.InvariantCulture));
-                    Debug.Log("ROTATION MATCH: " + currRemoteRot.eulerAngles);
                     changePos();
                     changeRot();
-
-                    int count = int.Parse(splittedInfo[3]);
-                    if (count != lastCount + 1)
-                        Debug.Log("COUNT NOT MATCHING! LAST: " + lastCount + ". RECEIVED: " + count);
-                    else
-                        Debug.Log("MATCH ALL FINE: " + count);
-
-                    lastCount = count;
                     break;
 
                 case Messages.SCENE_ROTATION:
                     float sceneRotationAngle = float.Parse(splittedMessage[1]);
-                    //parenthesisIndex = sceneRotationRaw.IndexOf(")");
-                    //filteredMessage = sceneRotationRaw.Substring(1, parenthesisIndex - 1);
-                    //string[] splittedSceneRot = filteredMessage.Split(", ".ToCharArray());
-                    //currSceneRot = new Quaternion(float.Parse(splittedSceneRot[0], CultureInfo.InvariantCulture), float.Parse(splittedSceneRot[2], CultureInfo.InvariantCulture), float.Parse(splittedSceneRot[4], CultureInfo.InvariantCulture), float.Parse(splittedSceneRot[6], CultureInfo.InvariantCulture));
-
                     rotateScene(sceneRotationAngle);
                     break;
 
