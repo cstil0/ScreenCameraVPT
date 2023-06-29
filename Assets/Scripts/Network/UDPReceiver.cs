@@ -325,7 +325,7 @@ public class UDPReceiver : MonoBehaviour
                     break;
 
                 case Messages.CHANGE_SCREEN_DISTANCE:
-                    wallDistance = float.Parse(splittedMessage[1], CultureInfo.InvariantCulture);
+                    wallDistance = float.Parse(splittedMessage[1]);
                     break;
 
                 case Messages.RESET_POSROT:
